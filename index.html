@@ -614,6 +614,39 @@
     background:var(--tabbar-bg, rgba(244,244,234,.7));
     -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
   }
+
+  /* ---------- vista web: en pantallas anchas se quita el marco del celular y la app
+     ocupa la ventana como una página. Los controles de prueba pasan a una barra lateral
+     que se puede plegar. Conserva el modo celular con marco desde la barra de controles. ---------- */
+  body.vista-web{ display:grid; grid-template-columns:auto minmax(0,1fr); gap:0; padding:0; align-items:start; height:100vh; overflow:hidden; background:var(--cream); }
+  body.vista-web .rig-label{ display:none; }
+  body.vista-web .harness[open]{ position:sticky; top:0; z-index:40; width:340px; max-width:340px; height:100vh; overflow-y:auto; border-radius:0; border-width:0 1px 0 0; flex-direction:column; flex-wrap:nowrap; align-items:stretch; padding:14px; }
+  body.vista-web .harness:not([open]){ position:fixed; top:10px; left:10px; z-index:60; width:auto; padding:6px 12px; border-radius:999px; box-shadow:var(--shadow-2); }
+  body.vista-web .harness:not([open]) .harness-summary{ margin:0; }
+  body.vista-web .phone{ grid-column:2; width:100%; height:100vh; border:none; border-radius:0; box-shadow:none; }
+  body.vista-web .status-bar, body.vista-web .home-indicator{ display:none; }
+  body.vista-web .screen{ zoom:calc(var(--ui-scale,1) * 1.12); padding-bottom:40px; }
+  body.vista-web .screen > *{ width:100%; max-width:760px; margin-left:auto; margin-right:auto; }
+  body.vista-web .screen:has(.summary-grid) > *{ max-width:1000px; }
+  body.vista-web .screen > .tab-bar{ order:-1; max-width:none; position:sticky; top:0; bottom:auto; border-top:none; border-bottom:1px solid var(--border); justify-content:center; gap:6px; padding:6px 20px; }
+  body.vista-web .tab-item{ flex:0 0 auto; flex-direction:row; gap:8px; padding:8px 18px; font-size:13px; border-radius:999px; }
+  body.vista-web .tab-item.active{ background:var(--success-bg); }
+  body.vista-web .tab-item.active .tab-icon-wrap{ background:transparent; }
+  body.vista-web .screen > .bar-title{ max-width:none; padding-left:max(20px, calc(50% - 380px + 20px)); padding-right:max(20px, calc(50% - 380px + 20px)); }
+  body.vista-web .screen:has(.summary-grid) > .bar-title{ padding-left:max(20px, calc(50% - 500px + 20px)); padding-right:max(20px, calc(50% - 500px + 20px)); }
+  body.vista-web .content{ padding:0 28px; }
+  body.vista-web .app-header{ padding:18px 28px 10px; }
+  body.vista-web .content:has(> .summary-grid){ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 20px; align-content:start; }
+  body.vista-web .content:has(> .summary-grid) > :not(.nav-card){ grid-column:1 / -1; }
+  body.vista-web .summary-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); }
+  body.vista-web .nav-card{ margin-bottom:12px; }
+  body.vista-web .screen > .state-banner{ width:calc(100% - 56px); max-width:704px; }
+  body.vista-web .screen:has(.summary-grid) > .state-banner{ max-width:944px; }
+  body.vista-web .summary-card.wide{ grid-column:span 2; }
+  body.vista-web .screen > .modal-overlay{ max-width:none; width:auto; margin:0; }
+  body.vista-web .modal-card{ width:min(100%, 420px); }
+  body.vista-web .screen > .center-stage, body.vista-web .screen > .confirm-body, body.vista-web .screen > .saving-stage{ max-width:640px; }
+  body.vista-web .toast{ bottom:28px; max-width:420px; }
 </style>
 </head>
 <body>
@@ -661,6 +694,22 @@
       <button class="chip active" id="chip-sc-success" onclick="setScenario('success')">Éxito</button>
       <button class="chip" id="chip-sc-error" onclick="setScenario('error')">No reconoce voz</button>
       <button class="chip" id="chip-sc-interrupted" onclick="setScenario('interrupted')">Interrupción</button>
+    </fieldset>
+  </div>
+  <div class="harness-row">
+    <fieldset>
+      <legend>Vista del prototipo</legend>
+      <button class="chip" id="chip-vista-web" onclick="setVista('web')">Web (pantalla completa)</button>
+      <button class="chip" id="chip-vista-cel" onclick="setVista('celular')">Celular (con marco)</button>
+    </fieldset>
+  </div>
+  <div class="harness-row">
+    <fieldset>
+      <legend>Voz y reportes compartidos</legend>
+      <button class="chip" id="chip-voz-real" onclick="setVoz(true)">Micrófono real</button>
+      <button class="chip active" id="chip-voz-sim" onclick="setVoz(false)">Frase de ejemplo</button>
+      <div id="estado-compartir" style="font-size:11.5px; color:var(--gray); margin-top:6px; width:100%; line-height:1.4;"></div>
+      <div id="nota-voz" style="font-size:11.5px; color:var(--danger); margin-top:4px; width:100%; line-height:1.4;"></div>
     </fieldset>
   </div>
   <div class="harness-row">
@@ -1395,7 +1444,7 @@ function sincronizarPendientes(nombre){
     }
   });
   state.sharedNovedades.forEach(x=>{
-    if(x.reporter===nombre && x.pendienteSync){ x.pendienteSync = false; x.sincronizadaEnISO = ahoraISO; x.time = 'Hace un momento'; n++; }
+    if(x.reporter===nombre && x.pendienteSync){ x.pendienteSync = false; x.sincronizadaEnISO = ahoraISO; x.time = 'Hace un momento'; n++; Compartir.publicar(x); }
   });
   return n;
 }
@@ -1531,7 +1580,7 @@ function resetApp(destino){
   document.getElementById('chip-role-mayordomo').classList.remove('role-active');
   document.getElementById('chip-role-profesional').classList.remove('role-active');
   document.getElementById('chip-role-administrador').classList.remove('role-active');
-  state.sharedNovedades=[];
+  state.sharedNovedades=[]; Compartir.limpiar();
   state.tareas = crearTareasIniciales();
   state.team.forEach(m=>{ if(m.name==='Henry Porras') m.estado='Disponible'; });
   inicializarSyncEquipo();
@@ -2613,6 +2662,7 @@ screens.detalleNovedadHistTrabajador = () => {
     ${filasHoraNovedad(n)}
     <div class="kv-row"><span>Qué pasó con tu reporte</span><span>${n.pendienteSync ? 'Aún no llega al equipo' : estadoLabel(n.status)}</span></div>
     <div class="quote-box">Lo que dijiste: "${n.transcript}"</div>
+    <button class="speaker-btn" onclick="leerNovedad('${n.id}')">${lucideLabel('volume-2','Escuchar',15)}</button>
     ${n.fotoAdjunta ? `<img src="${n.fotoSrc || PHOTO_NOVEDAD_EJEMPLO}" style="width:100%; max-width:220px; border-radius:12px; object-fit:cover;" alt="Foto que adjuntaste">` : ''}
   </div>
   `;
@@ -3192,6 +3242,7 @@ screens.novedadDetalleMayordomo = () => {
          ${state.verFotoNovedadReporte ? `<img src="${n.fotoSrc || PHOTO_NOVEDAD_EJEMPLO}" style="width:100%; max-width:220px; border-radius:12px; object-fit:cover;" alt="Foto adjunta por el trabajador">` : ''}`
       : ''}
     <div class="quote-box">Transcripción: "${n.transcript}"</div>
+    <button class="speaker-btn" onclick="leerNovedad('${n.id}')">${lucideLabel('volume-2','Escuchar',15)}</button>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="askConfirmNovedadAction('${n.id}','finca')">Gestionar en finca</button>
       <button class="btn btn-primary" onclick="askConfirmNovedadAction('${n.id}','vet')">Enviar al veterinario</button>
@@ -3216,14 +3267,14 @@ function executeNovedadAction(){
 function manageInFinca(id){
   const n = state.sharedNovedades.find(x=>x.id===id);
   if(n){
-    n.status = 'gestionada';
+    n.status = 'gestionada'; Compartir.publicar(n);
     state.tareas.push({id:'t'+Date.now(), titulo:`Revisión Vaca ${n.animal} — ${n.summary}`, trabajador:null, fechaISO:null, momento:null, horaEspecifica:'', prioridad:false, estado:'por-asignar', notificada:false});
   }
   go('confirmacion-gestion-finca');
 }
 function sendToVet(id){
   const n = state.sharedNovedades.find(x=>x.id===id);
-  if(n) n.status = 'enviada-veterinario';
+  if(n){ n.status = 'enviada-veterinario'; Compartir.publicar(n); }
   go('confirmacion-envio-vet');
 }
 screens.confirmacionEnvioVet = () => `
@@ -3525,7 +3576,7 @@ function confirmVisita(){
     });
     // La alerta ya se atendió (se le programó visita) — no debe seguir
     // apareciendo en "Alertas recibidas" ni poder reprogramarse de nuevo.
-    a.status = 'visita-programada';
+    a.status = 'visita-programada'; Compartir.publicar(a);
   }
   go('visita-programada'); hapticPulse();
 }
@@ -4663,8 +4714,12 @@ screens.validacionNovedad = () => {
           ${animalPhotoTag(state.currentAnimal, 76, 76)}
           <div class="animal-id">VACA ${state.currentAnimal}</div>
         </div>
-        <div class="quote-box">"${state.currentTranscript}"</div>
-        <button class="speaker-btn" onclick="readTranscriptAloud(state.currentTranscript)">${lucideLabel('volume-2','Leer transcripción',15)}</button>
+        ${state.novedadEditing
+          ? `<textarea class="edit-textarea" id="novedad-textarea">${state.currentTranscript}</textarea>
+             <div style="font-size:11.5px; color:var(--gray); margin:4px 0;">Escribe o usa el micrófono del teclado de tu celular.</div>
+             <button class="speaker-btn" onclick="aplicarEdicionNovedad()">Listo</button>`
+          : `<div class="quote-box">"${state.currentTranscript}"<div class="edit-pencil" onclick="toggleNovedadEdit(true)">✎</div></div>
+             <button class="speaker-btn" onclick="readTranscriptAloud(state.currentTranscript)">${lucideLabel('volume-2','Leer transcripción',15)}</button>`}
         <div class="field" style="margin-top:6px;">
           <label>Foto (Opcional)</label>
           ${state.novedadFotoAdjunta
@@ -4729,6 +4784,77 @@ const MIN_HOLD_MS = 500;      // por debajo de esto se considera un toque accide
 const MAX_HOLD_MS = 4000;     // barra de progreso llena a los 4s de habla continua
 const PROCESO_MS = 2200;      // tiempo real de transcripción, medido y documentado en la auditoría KLM
 
+
+/* ================= VOZ REAL (reconocimiento y lectura en voz alta) =================
+   Usa la API del navegador. Si no hay micrófono disponible (por ejemplo, dentro de una
+   página publicada) el prototipo sigue con la frase de ejemplo y deja corregir el texto. */
+function esc(t){ return String(t==null?'':t).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function desesc(t){ const x=document.createElement('textarea'); x.innerHTML=String(t||''); return x.value; }
+const SRClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+const Voz = {
+  soportada: !!SRClass, activa: !!SRClass, rec:null, final:'', interim:'', error:null, terminado:true, alTerminar:null,
+  texto(){ return (Voz.final+' '+Voz.interim).replace(/\s+/g,' ').trim(); },
+  iniciar(){
+    if(!Voz.activa) return false;
+    try{
+      const r = new SRClass();
+      r.lang = 'es-CO'; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+      Voz.final=''; Voz.interim=''; Voz.error=null; Voz.terminado=false;
+      r.onresult = e=>{
+        let f='', i='';
+        for(let k=0;k<e.results.length;k++){ const res=e.results[k]; if(res.isFinal) f += res[0].transcript+' '; else i += res[0].transcript; }
+        Voz.final=f; Voz.interim=i;
+      };
+      r.onerror = e=>{
+        Voz.error = e.error;
+        if(e.error==='not-allowed' || e.error==='service-not-allowed' || e.error==='audio-capture' || e.error==='network' || e.error==='language-not-supported'){ Voz.activa=false; mostrarVoz(); }
+      };
+      r.onend = ()=>{ Voz.terminado=true; const f=Voz.alTerminar; Voz.alTerminar=null; if(f) f(); };
+      Voz.rec = r; r.start();
+      return true;
+    }catch(e){ Voz.activa=false; mostrarVoz(); return false; }
+  },
+  cancelar(){ try{ if(Voz.rec) Voz.rec.abort(); }catch(e){} Voz.alTerminar=null; Voz.terminado=true; },
+  detener(){
+    return new Promise(res=>{
+      if(!Voz.rec || Voz.terminado){ res(Voz.texto()); return; }
+      let t = null;
+      Voz.alTerminar = ()=>{ clearTimeout(t); res(Voz.texto()); };
+      t = setTimeout(()=>{ Voz.alTerminar=null; res(Voz.texto()); }, 2500);
+      try{ Voz.rec.stop(); }catch(e){ clearTimeout(t); Voz.alTerminar=null; res(Voz.texto()); }
+    });
+  }
+};
+function setVoz(real){
+  if(real && !Voz.soportada){ toast('Este navegador no tiene reconocimiento de voz. Usa Chrome o Edge.'); return; }
+  Voz.activa = !!real; mostrarVoz();
+  toast(real ? 'Micrófono real activado' : 'Se usará la frase de ejemplo');
+}
+function mostrarVoz(){
+  const a=document.getElementById('chip-voz-real'), b=document.getElementById('chip-voz-sim');
+  if(a){ a.classList.toggle('active', Voz.activa); a.disabled = !Voz.soportada; }
+  if(b) b.classList.toggle('active', !Voz.activa);
+  const n=document.getElementById('nota-voz');
+  if(n) n.textContent = !Voz.soportada ? 'Este navegador no tiene reconocimiento de voz. Usa Chrome o Edge.' : (Voz.error==='network' || Voz.error==='service-not-allowed' || Voz.error==='language-not-supported' ? 'Este navegador no tiene acceso al servicio de voz (Opera y Opera GX no lo incluyen). Abre el archivo en Chrome o Edge.' : Voz.error==='not-allowed' ? 'El navegador no dio permiso al micrófono. Revisa el permiso del sitio o abre el archivo en Chrome.' : Voz.error==='audio-capture' ? 'No se encontró un micrófono conectado.' : '');
+}
+function resumenDe(t){
+  let r = String(t||'').replace(/^\s*(la |el )?(vaca|animal|ternera|toro)\s*(n[uú]mero\s*)?\d{2,4}[,.:]?\s*/i,'').trim();
+  if(!r) return 'reportó una novedad';
+  r = r.charAt(0).toLowerCase()+r.slice(1);
+  return r.length>60 ? r.slice(0,57).trim()+'…' : r;
+}
+function toggleNovedadEdit(v){ state.novedadEditing=v; render(); if(v){ const t=document.getElementById('novedad-textarea'); if(t){ t.focus(); } } }
+function aplicarEdicionNovedad(silencio){
+  const t=document.getElementById('novedad-textarea');
+  if(t){
+    const txt = t.value.replace(/\s+/g,' ').trim();
+    if(txt){ state.currentTranscript = esc(txt); if(state.currentResumen) state.currentResumen = resumenDe(state.currentTranscript); }
+  }
+  state.novedadEditing=false;
+  if(!silencio) render();
+}
+function leerNovedad(id){ const n=state.sharedNovedades.find(x=>x.id===id); if(n) readTranscriptAloud(n.transcript); }
+
 function micPressStart(ctx, kind, mode){
   if(state._recording) return;
   if(!pedirPermiso('mic')) return;
@@ -4740,6 +4866,7 @@ function micPressStart(ctx, kind, mode){
   state._recording = true;
   state._pressStart = Date.now();
   state._recordPhase = 'holding';
+  state._vozReal = Voz.iniciar();
   go(RECORD_CFG[kind].listen);
   document.addEventListener('pointerup', micPressEnd, {once:true});
   document.addEventListener('pointercancel', micPressEnd, {once:true});
@@ -4749,6 +4876,10 @@ function micPressStart(ctx, kind, mode){
     const pct = Math.min(100, (held/MAX_HOLD_MS)*100);
     const fill = document.getElementById('hold-fill');
     const hint = document.getElementById('hold-hint');
+    if(state._vozReal){
+      const tb = document.querySelector('#screen .transcript-box'), tx = Voz.texto();
+      if(tb && tx){ tb.classList.add('transcript-live'); tb.innerHTML = esc(tx)+'<span class="cursor"></span>'; }
+    }
     if(fill) fill.style.width = pct+'%';
     if(hint){
       if(held < MIN_HOLD_MS){ hint.textContent = 'Sigue hablando...'; hint.classList.remove('ready'); }
@@ -4762,21 +4893,48 @@ function micPressEnd(){
   clearInterval(state._holdTimer);
   const held = Date.now() - state._pressStart;
   if(held < MIN_HOLD_MS){
+    if(state._vozReal){ Voz.cancelar(); state._vozReal=false; }
     toast('Mantén presionado mientras hablas — suelta cuando termines');
     back();
     return;
   }
   if(state.scenario === 'error'){
+    if(state._vozReal){ Voz.cancelar(); state._vozReal=false; }
     setTimeout(()=> go('error-grabacion'), 500);
+    return;
+  }
+  if(state._vozReal){
+    state._vozReal = false;
+    state._recordPhase = 'processing'; render();
+    Voz.detener().then(txt=>{
+      if(!Voz.activa){ toast('La voz no está disponible en este navegador. Usa Chrome o Edge, o corrige el texto con el teclado.'); runProcessingPhase(); return; }
+      if(!txt){ go('error-grabacion'); return; }
+      runProcessingPhase(txt);
+    });
     return;
   }
   runProcessingPhase();
 }
-function runProcessingPhase(){
+function runProcessingPhase(textoReal){
   state._recordPhase = 'processing';
   render();
   const kind = state.recordingKind;
   const cfg = RECORD_CFG[kind];
+  if(textoReal !== undefined){
+    const limpio = esc(textoReal.charAt(0).toUpperCase()+textoReal.slice(1));
+    if(kind === 'novedad'){
+      state.currentTranscript = limpio;
+      const m = textoReal.match(/(?:vaca|animal|ternera|toro|n[uú]mero)\s*(?:n[uú]mero\s*)?(\d{2,4})/i);
+      state.currentAnimal = m ? m[1] : (state.currentAnimal || '218');
+      state.currentResumen = resumenDe(limpio);
+    } else if(kind === 'evaluacion'){ state.evaluacionTranscript = limpio; }
+    else if(kind === 'anuncio'){ state.anuncioTranscript = limpio; }
+    const live = document.getElementById('live-transcript-text');
+    if(live) live.innerHTML = limpio;
+    setTimeout(()=> go(cfg.validation), 700);
+    return;
+  }
+  if(kind === 'novedad') state.currentResumen = null;
   const fullText = cfg.getTranscript();
   const words = fullText.split(' ');
   let shown = 0;
@@ -4800,7 +4958,21 @@ function savingThen(afterFn){
   setTimeout(afterFn, 650);
 }
 function readTranscriptAloud(text){
-  toast('🔊 Leyendo: "' + text.slice(0,40) + (text.length>40?'…':'') + '"');
+  const limpio = desesc(text);
+  if(!('speechSynthesis' in window)){ toast('Este navegador no puede leer en voz alta.'); return; }
+  try{
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(limpio);
+    u.lang = 'es-CO'; u.rate = 0.95;
+    const vs = speechSynthesis.getVoices();
+    const v = vs.find(x=>x.lang==='es-CO') || vs.find(x=>/^es[-_]/i.test(x.lang)) || vs.find(x=>/^es/i.test(x.lang));
+    if(v) u.voice = v;
+    let arranco = false;
+    u.onstart = ()=>{ arranco = true; toast('🔊 Leyendo el mensaje…'); };
+    u.onerror = ()=>{ if(!arranco) toast('No se pudo reproducir la voz en este navegador.'); };
+    speechSynthesis.speak(u);
+    setTimeout(()=>{ if(!arranco && !speechSynthesis.speaking) toast('No se escuchó nada. Revisa el volumen o prueba en Chrome.'); }, 1800);
+  }catch(e){ toast('No se pudo reproducir la voz.'); }
 }
 
 function resumeAfterInterruption(){
@@ -4814,6 +4986,7 @@ function retryRecording(){
 }
 function cancelRecording(){ goHome(); }
 function saveNovedad(){
+  if(state.novedadEditing) aplicarEdicionNovedad(true);
   state.novedadCreadaEnISO = new Date().toISOString();
   savingThen(()=>{
     hapticPulse();
@@ -4844,7 +5017,7 @@ function finishNovedad(){
   const nuevaNovedad = {
     id: 'n'+Date.now(),
     animal: state.currentAnimal,
-    summary: 'amaneció coja',
+    summary: state.currentResumen || 'amaneció coja',
     transcript: state.currentTranscript,
     reporter: state.recordCtx.reporter,
     time: 'Hace un momento',
@@ -4858,6 +5031,8 @@ function finishNovedad(){
     fotoSrc: state.novedadFotoAdjunta ? (state.novedadFotoCandidata || PHOTO_NOVEDAD_EJEMPLO) : null
   };
   state.sharedNovedades.unshift(nuevaNovedad);
+  state.currentResumen = null;
+  Compartir.publicar(nuevaNovedad);
   // Si quien reporta es el propio mayordomo, ya tiene todo el contexto fresco:
   // se le lleva directo a decidir (gestionar en finca / enviar al veterinario)
   // en vez de mandarlo al inicio para que luego tenga que volver a entrar.
@@ -4866,6 +5041,105 @@ function finishNovedad(){
   } else {
     goHome();
   }
+}
+
+
+/* ================= REPORTES COMPARTIDOS ENTRE ROLES =================
+   Cada celular/ventana es "un dispositivo". Lo que se reporta con señal se publica en un
+   almacén compartido y los demás roles lo reciben. Lo que Luis guarda sin señal NO se
+   publica hasta que vuelva la señal (igual que en el modelo de sincronización).
+   Modo "nube": base de datos compartida de la página publicada (entre tus dispositivos).
+   Modo "local": entre ventanas del mismo navegador (archivo abierto en el computador). */
+const Compartir = {
+  id: 'c'+Math.random().toString(36).slice(2,8), modo:'local', db:null, vistos:new Set(), cola:Promise.resolve(),
+  LS:'fincavoz.novedades', soloLectura:false, nuevoRemoto:false,
+  async iniciar(){
+    try{
+      if(window.claude && typeof window.claude.use === 'function'){
+        const db = await Promise.race([window.claude.use('db'), new Promise(r=>setTimeout(()=>r(null),4000))]);
+        if(db){
+          this.db = db; this.modo = 'nube';
+          db.collection('novedades').onSnapshot(snap=>{
+            const m = {}; snap.docs.forEach(d=>{ const x=d.data(); if(x) m[d.id]=x; });
+            this.aplicar(m);
+          }, ()=>{ this.db=null; this.iniciarLocal(); this.mostrar(); });
+          this.mostrar(); return;
+        }
+      }
+    }catch(e){}
+    this.iniciarLocal(); this.mostrar();
+  },
+  iniciarLocal(){
+    this.modo = 'local';
+    try{ this.aplicar(this.leerLocal()); window.addEventListener('storage', e=>{ if(e.key===this.LS) this.aplicar(this.leerLocal()); }); }catch(e){}
+  },
+  leerLocal(){ try{ return JSON.parse(localStorage.getItem(this.LS)||'{}'); }catch(e){ return {}; } },
+  escribirLocal(m){ try{ localStorage.setItem(this.LS, JSON.stringify(m)); }catch(e){} },
+  desdeDoc(d){
+    const n = {}; Object.keys(d).forEach(k=>{ n[k] = typeof d[k]==='string' ? esc(desesc(d[k])) : d[k]; });
+    delete n.origen; return n;
+  },
+  publicar(n){
+    if(!n || n.pendienteSync) return;
+    const d = JSON.parse(JSON.stringify(n));
+    d.actualizadaEn = new Date().toISOString(); n.actualizadaEn = d.actualizadaEn;
+    d.origen = this.id; delete d.seenByAdmin; delete d.fotoSrc;
+    this.vistos.add(n.id);
+    if(this.modo==='nube' && this.db){
+      this.cola = this.cola.then(()=>this.db.doc('novedades/'+n.id).set(d)).catch(()=>{ this.soloLectura = true; this.mostrar(); });
+    } else {
+      const m = this.leerLocal(); m[n.id] = d; this.escribirLocal(m);
+    }
+  },
+  limpiar(){
+    this.vistos.clear();
+    if(this.modo==='nube' && this.db){
+      this.cola = this.cola.then(()=>this.db.collection('novedades').get())
+        .then(s=>Promise.all(s.docs.map(d=>this.db.doc('novedades/'+d.id).delete()))).catch(()=>{});
+    } else { this.escribirLocal({}); }
+  },
+  aplicar(m){
+    let cambio = false;
+    Object.keys(m).forEach(id=>{
+      const d = m[id]; this.vistos.add(id);
+      if(d.origen === this.id) return;
+      const i = state.sharedNovedades.findIndex(x=>x.id===id);
+      if(i < 0){ state.sharedNovedades.unshift(this.desdeDoc(d)); cambio = true; this.nuevoRemoto = true; }
+      else if((d.actualizadaEn||'') > (state.sharedNovedades[i].actualizadaEn||'')){
+        const loc = state.sharedNovedades[i], visto = loc.seenByAdmin;
+        Object.assign(loc, this.desdeDoc(d)); loc.seenByAdmin = visto; cambio = true;
+      }
+    });
+    [...this.vistos].forEach(id=>{
+      if(!(id in m)){
+        this.vistos.delete(id);
+        const i = state.sharedNovedades.findIndex(x=>x.id===id);
+        if(i >= 0){ state.sharedNovedades.splice(i,1); cambio = true; }
+      }
+    });
+    if(cambio) refrescarRemoto();
+  },
+  mostrar(){
+    const el = document.getElementById('estado-compartir');
+    if(!el) return;
+    el.textContent = this.soloLectura
+      ? 'Tu acceso a este enlace es de solo lectura: lo que reportes no se compartirá.'
+      : this.modo==='nube'
+        ? 'Los reportes se comparten en la nube con tus otros dispositivos que abran este enlace.'
+        : 'Los reportes se comparten entre ventanas de este navegador. Abre otra ventana y elige otro rol.';
+  }
+};
+let _rt = null;
+function refrescarRemoto(){
+  clearTimeout(_rt);
+  _rt = setTimeout(()=>{
+    const a = document.activeElement;
+    const editando = a && (a.tagName==='TEXTAREA' || a.tagName==='INPUT');
+    const grabando = state._recording || ['escuchando','evaluacion-escuchando','anuncio-escuchando'].includes(state.screen);
+    if(editando || grabando){ refrescarRemoto(); return; }
+    render();
+    if(Compartir.nuevoRemoto){ Compartir.nuevoRemoto = false; toast('Llegó un reporte nuevo'); }
+  }, 300);
 }
 
 /* ================= RENDER ================= */
@@ -5108,6 +5382,20 @@ aplicarPreferenciasAccesibilidad();
 inicializarSyncEquipo();
 alinearConexionConPerfil('trabajador');
 render();
+mostrarVoz();
+Compartir.iniciar();
+let vistaManual = null;
+function aplicarVista(){
+  const ancho = window.innerWidth;
+  const web = ancho >= 700 && (vistaManual ? vistaManual==='web' : ancho >= 1000);
+  document.body.classList.toggle('vista-web', web);
+  const a=document.getElementById('chip-vista-web'), b=document.getElementById('chip-vista-cel');
+  if(a) a.classList.toggle('active', web);
+  if(b) b.classList.toggle('active', !web);
+}
+function setVista(v){ vistaManual = v; aplicarVista(); }
+window.addEventListener('resize', aplicarVista);
+aplicarVista();
 </script>
 </body>
 </html>
