@@ -629,10 +629,9 @@
   body.vista-web .screen{ zoom:calc(var(--ui-scale,1) * 1.12); padding-bottom:40px; }
   body.vista-web .screen > *{ width:100%; max-width:760px; margin-left:auto; margin-right:auto; }
   body.vista-web .screen:has(.summary-grid) > *{ max-width:1000px; }
-  body.vista-web .screen > .tab-bar{ order:-1; max-width:none; position:sticky; top:0; bottom:auto; border-top:none; border-bottom:1px solid var(--border); justify-content:center; gap:6px; padding:6px 20px; }
-  body.vista-web .tab-item{ flex:0 0 auto; flex-direction:row; gap:8px; padding:8px 18px; font-size:13px; border-radius:999px; }
-  body.vista-web .tab-item.active{ background:var(--success-bg); }
-  body.vista-web .tab-item.active .tab-icon-wrap{ background:transparent; }
+  body.vista-web .screen:has(> .tab-bar){ padding-bottom:0; }
+  body.vista-web .screen > .tab-bar{ max-width:none; justify-content:center; }
+  body.vista-web .tab-item{ flex:0 0 150px; padding-bottom:12px; }
   body.vista-web .screen > .bar-title{ max-width:none; padding-left:max(20px, calc(50% - 380px + 20px)); padding-right:max(20px, calc(50% - 380px + 20px)); }
   body.vista-web .screen:has(.summary-grid) > .bar-title{ padding-left:max(20px, calc(50% - 500px + 20px)); padding-right:max(20px, calc(50% - 500px + 20px)); }
   body.vista-web .content{ padding:0 28px; }
